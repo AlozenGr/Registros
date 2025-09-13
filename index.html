@@ -14,7 +14,7 @@
   </style>
   <script>
     /* ✅ seu endpoint /exec */
-    const API_URL = "https://script.google.com/macros/s/AKfycbwEbXwhm_cbuxMOy93AflWq-WNNLZVnjxWtK6i0d8VvyxWe56YzFVqcuut3LO5v8ssq/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbw3n4IjL_VgqAnEI0iDYThi496XCpY06HFUJ_EOd9lQynroGLLOi2_JsN036YqrKz6A/exec";
   </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -24,7 +24,6 @@
   </header>
 
   <main class="p-4 space-y-6">
-
     <!-- FORM -->
     <section class="card p-4">
       <h2 class="font-semibold mb-3">Adicionar Registro</h2>
@@ -112,7 +111,6 @@
     const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
     const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 
-    // Normaliza data que pode vir "YYYY-MM-DD" OU "Fri Sep 12 2025 ..."
     function normalizeISO(dateLike){
       if (!dateLike) return '';
       if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateLike))) return String(dateLike);
@@ -129,7 +127,7 @@
 
     /* ===== API ===== */
     const apiGet = async (params='')=>{
-      const r = await fetch(API_URL + (params?`?${params}`:''));
+      const r = await fetch(API_URL + (params?`?${params}`:'')); // simple GET
       const j = await r.json().catch(()=>({}));
       if (!r.ok) throw new Error('GET '+r.status);
       return j;
@@ -137,7 +135,7 @@
     const apiAdd = async (payload)=>{
       const r = await fetch(API_URL, {
         method:'POST',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        headers:{'Content-Type':'text/plain;charset=utf-8'}, // ← simples (sem preflight)
         body: JSON.stringify({ action:'add', payload })
       });
       const j = await r.json().catch(()=>({}));
@@ -273,19 +271,11 @@
         const pago = (document.getElementById('inPago').value || '').trim();
         const valorNum = toNumberBR(document.getElementById('inValor').value);
 
-        const payload = {
-          data,
-          cliente,
-          endereco,
-          pago,
-          descricao: '',     // opcional; deixe vazio aqui
-          valor: valorNum    // back infere tipo: >0 => DESPESA, senão TRABALHO
-        };
+        const payload = { data, cliente, endereco, pago, descricao:'', valor: valorNum };
 
         await apiAdd(payload);
         alert('Registro salvo com sucesso!');
 
-        // limpa e recarrega o mês do registro
         e.target.reset();
         const monthKey = (data && data.length>=7) ? data.slice(0,7) : yyyymm(new Date());
         await loadSummary();
@@ -293,7 +283,7 @@
 
       } catch(err){
         console.error(err);
-        alert('Falha ao salvar: ' + err.message);
+        alert('Falha ao salvar: ' + (err && err.message ? err.message : err));
       } finally {
         btn.disabled = false; btn.textContent = old;
       }
