@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     /* URL do seu Apps Script (Web App) */
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxFZa_hlXTX_mfgYoQx4eLVWb6finS8yKL8cuQpYdAE32-TMoqfNiYIgXfAo5sUTCFt/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwWyI0Rsyz4R-aw5dwKKETUOZq_wMSekBIXU3Q-hv-Hcf6-nKxrAgA_aTE20StEoWUq/exec';
   </script>
   <style>
     .card{border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.05)}
@@ -67,8 +67,9 @@
         <div class="text-sm">Selecionado: <b id="monthLabel"></b></div>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-3 mb-4">
-        <div class="p-3 rounded-xl border bg-white">
+      <!-- ✅ agora com 3 indicadores: Total, Pagas, Em aberto -->
+      <div class="grid md:grid-cols-6 gap-3 mb-4">
+        <div class="p-3 rounded-xl border bg-white md:col-span-3">
           <div class="font-semibold mb-1">Dias trabalhados (lista)</div>
           <ul id="diasLista" class="list-disc pl-5 text-sm space-y-1"></ul>
           <div id="diasEmpty" class="text-xs text-slate-500 hidden">Não há dias trabalhados registrados para este mês.</div>
@@ -78,11 +79,20 @@
           <div id="despesasTotalMes" class="text-lg font-bold">R$ 0,00</div>
         </div>
         <div class="p-3 rounded-xl border bg-white">
-          <div class="font-semibold mb-1">Somatória do mês</div>
-          <div class="text-sm">
-            Dias trabalhados: <b id="diasCount">0</b><br/>
-            Despesas: <b id="despesasCount">R$ 0,00</b>
-          </div>
+          <div class="font-semibold mb-1">Despesas pagas no mês</div>
+          <div id="despesasPagasMes" class="text-lg font-bold">R$ 0,00</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="font-semibold mb-1">Despesas em aberto no mês</div>
+          <div id="despesasAbertasMes" class="text-lg font-bold">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl border bg-white mb-4">
+        <div class="font-semibold mb-1">Somatória do mês</div>
+        <div class="text-sm">
+          Dias trabalhados: <b id="diasCount">0</b><br/>
+          Despesas (total): <b id="despesasCount">R$ 0,00</b>
         </div>
       </div>
 
@@ -187,12 +197,18 @@
         .filter(Boolean)
       )).sort();
 
-      const despesas = (rows||[])
-        .filter(r => String(r.tipo).toUpperCase()==='DESPESA')
-        .reduce((s, r) => {
-          const v = typeof r.valor === 'number' ? r.valor : toNumberBR(String(r.valor||''));
-          return s + (isFinite(v) ? v : 0);
-        }, 0);
+      const somenteDespesas = (rows||[]).filter(r => String(r.tipo).toUpperCase()==='DESPESA');
+
+      const totalDesp = somenteDespesas.reduce((s,r)=>{
+        const v = typeof r.valor==='number' ? r.valor : toNumberBR(String(r.valor||''));
+        return s + (isFinite(v)?v:0);
+      }, 0);
+
+      const pagas = somenteDespesas
+        .filter(r => String(r.pago).trim().toLowerCase()==='sim')
+        .reduce((s,r)=> s + (typeof r.valor==='number' ? r.valor : toNumberBR(String(r.valor||''))), 0);
+
+      const abertas = totalDesp - pagas;
 
       // lista de dias
       const ul = document.getElementById('diasLista');
@@ -250,9 +266,12 @@
       }
 
       // totais
-      document.getElementById('despesasTotalMes').textContent = 'R$ ' + moneyBR(despesas);
+      document.getElementById('despesasTotalMes').textContent   = 'R$ ' + moneyBR(totalDesp);
+      document.getElementById('despesasPagasMes').textContent   = 'R$ ' + moneyBR(pagas);
+      document.getElementById('despesasAbertasMes').textContent = 'R$ ' + moneyBR(abertas);
+
       document.getElementById('diasCount').textContent = dias.length;
-      document.getElementById('despesasCount').textContent = 'R$ ' + moneyBR(despesas);
+      document.getElementById('despesasCount').textContent = 'R$ ' + moneyBR(totalDesp);
     }
 
     /* ===== Fluxo ===== */
@@ -278,7 +297,7 @@
         }
         if (!lastKey){ lastKey = yyyymm(new Date()); }
 
-        // FILTRO ROBUSTO: aceita 'mes' como 'YYYY-MM' ou Date-string
+        // Filtro robusto: aceita 'mes' como 'YYYY-MM' ou Date-string
         const rows = allRows.filter(r => {
           const k = keyFromDateLike(r.mes) || keyFromDateLike(r.data);
           return String(k) === String(lastKey);
@@ -319,7 +338,7 @@
       }
     });
 
-    // Carrega na abertura usando o último mês disponível no servidor (com fallback)
+    // Carrega na abertura usando o último mês disponível no servidor
     loadUsingLatestMonth();
   </script>
 </body>
