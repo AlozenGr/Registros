@@ -1,4 +1,4 @@
-index_html = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -14,7 +14,7 @@ index_html = """<!DOCTYPE html>
     .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
   </style>
   <script>
-    const API_URL = (window.GRANTOP_CONFIG && window.GRANTOP_CONFIG.API_URL) || 'https://script.google.com/macros/s/AKfycbzfYN-bvcpqwcewSVkS8wFA8YxLQtag1KStX7wFLsVnjw3D2lEpbsZS9LouHQHnSHN7/exec';
+    const API_URL = (window.GRANTOP_CONFIG && window.GRANTOP_CONFIG.API_URL) || '';
   </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -109,12 +109,12 @@ index_html = """<!DOCTYPE html>
   <script>
     /* ===== Utils ===== */
     const moneyBR = v => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
+    const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\\./g,'').replace(',', '.')) || 0;
     const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 
     function normalizeISO(dateLike){
       if (!dateLike) return '';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateLike))) return String(dateLike);
+      if (/^\\d{4}-\\d{2}-\\d{2}$/.test(String(dateLike))) return String(dateLike);
       const d = new Date(String(dateLike));
       if (isNaN(d)) return '';
       return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -265,9 +265,15 @@ index_html = """<!DOCTYPE html>
       if (j && j.ok) renderSummary(j.summary||{});
     }
     async function loadMonth(monthKey){
-      // Busca todos os registros e filtra no cliente
+      // Busca todos os registros e filtra no cliente de forma robusta
       const j = await apiGet('');
-      const rows = (j && j.ok && Array.isArray(j.data)) ? j.data.filter(r => String(r.mes) === String(monthKey)) : [];
+      const rows = (j && j.ok && Array.isArray(j.data))
+        ? j.data.filter(r => {
+            const mes = String(r.mes||'').trim();
+            const mesFromData = normalizeISO(r.data||'').slice(0,7);
+            return (mes.slice(0,7) === String(monthKey)) || (mesFromData === String(monthKey));
+          })
+        : [];
       renderMonthPanel(monthKey, rows);
     }
     async function initialLoad(){
