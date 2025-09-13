@@ -17,6 +17,7 @@
     .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
     .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #cbd5e1;border-radius:8px;padding:.35rem .6rem;font-size:.8rem;background:#fff}
     .btn:hover{background:#f8fafc}
+    .clickable{cursor:pointer}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -54,11 +55,23 @@
       <p class="text-xs text-slate-500 mt-2">Obs.: TRABALHO ignora o valor; DESPESA exige valor. “Dias trabalhados” contam datas únicas com tipo “TRABALHO”.</p>
     </section>
 
-    <!-- RESUMO (apenas 1 cartão do mês selecionado) -->
+    <!-- RESUMO (1..6 meses terminando no mês selecionado) -->
     <section class="card p-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="font-semibold">Resumo Mensal</h2>
-        <div id="summaryLoading" class="text-xs text-slate-500 hidden">Carregando...</div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm flex items-center gap-2">Últimos:
+            <select id="winSel" class="border rounded px-2 py-1">
+              <option value="1">1 mês</option>
+              <option value="2">2 meses</option>
+              <option value="3">3 meses</option>
+              <option value="4">4 meses</option>
+              <option value="5">5 meses</option>
+              <option value="6" selected>6 meses</option>
+            </select>
+          </label>
+          <div id="summaryLoading" class="text-xs text-slate-500 hidden">Carregando...</div>
+        </div>
       </div>
       <div id="summary" class="grid md:grid-cols-3 gap-3"></div>
     </section>
@@ -226,18 +239,35 @@
     };
 
     /* ===== Render ===== */
-    function renderSummaryOneMonth(summary, selectedKey){
+    function renderSummaryWindow(summary, selectedKey, n){
       const div = document.getElementById('summary');
       div.innerHTML = '';
-      const d = summary[selectedKey] || {diasTrabalhados:0, despesasTotal:0};
-      const el = document.createElement('div');
-      el.className = 'p-3 rounded-xl border shadow text-sm bg-white';
-      el.innerHTML = `
-        <div class="font-semibold">${selectedKey}</div>
-        <div>Dias trabalhados: <b>${d.diasTrabalhados}</b></div>
-        <div>Despesas: R$ <b>${moneyBR(d.despesasTotal)}</b></div>
-      `;
-      div.appendChild(el);
+      const keys = Object.keys(summary||{}).sort();
+      const idx = Math.max(0, keys.indexOf(selectedKey));
+      const start = Math.max(0, idx - (n-1));
+      const slice = keys.slice(start, idx+1);
+      slice.forEach(k=>{
+        const d = summary[k] || {diasTrabalhados:0, despesasTotal:0};
+        const el = document.createElement('div');
+        el.className = 'p-3 rounded-xl border shadow text-sm bg-white';
+        el.innerHTML = `
+          <div class="font-semibold">${k}</div>
+          <div>Dias trabalhados: <b>${d.diasTrabalhados}</b></div>
+          <div>Despesas: R$ <b>${moneyBR(d.despesasTotal)}</b></div>
+        `;
+        div.appendChild(el);
+      });
+    }
+
+    function pagoBadgeHTML(pago){
+      const val = (String(pago||'').toLowerCase());
+      if (val==='sim'){
+        return '<span class="badge badge-green clickable js-toggle-pago" data-next="Não">Sim</span>';
+      } else if (val==='não' || val==='nao'){
+        return '<span class="badge badge-red clickable js-toggle-pago" data-next="Sim">Não</span>';
+      } else {
+        return '<span class="badge badge-slate clickable js-toggle-pago" data-next="Sim">—</span>';
+      }
     }
 
     function renderMonthPanel(monthKey, rows){
@@ -287,13 +317,6 @@
           .slice()
           .sort((a,b)=> normalizeISO(a.data).localeCompare(normalizeISO(b.data)))
           .forEach(r=>{
-            const pagoBadge =
-              (String(r.pago).toLowerCase()==='sim')
-                ? '<span class="badge badge-green">Sim</span>'
-                : (String(r.pago).toLowerCase()==='não' || String(r.pago).toLowerCase()==='nao')
-                  ? '<span class="badge badge-red">Não</span>'
-                  : `<span class="badge badge-slate">${(r.pago||'-')}</span>`;
-
             const tipoBadge =
               (String(r.tipo).toUpperCase()==='DESPESA')
                 ? '<span class="badge badge-blue">Despesa</span>'
@@ -307,7 +330,7 @@
               <td class="p-2 border">${fmtDDMMYYYY(r.data)}</td>
               <td class="p-2 border">${(r.cliente||'').toString().trim() || '-'}</td>
               <td class="p-2 border">${(r.endereco||'').toString().trim() || '-'}</td>
-              <td class="p-2 border">${pagoBadge}</td>
+              <td class="p-2 border" data-id="${r.id}">${pagoBadgeHTML(r.pago)}</td>
               <td class="p-2 border">${tipoBadge}</td>
               <td class="p-2 border text-right">${vnum > 0 ? 'R$ ' + moneyBR(vnum) : '-'}</td>
               <td class="p-2 border">
@@ -318,18 +341,28 @@
             tbody.appendChild(tr);
           });
 
-        // listeners
-        tbody.querySelectorAll('.js-edit').forEach(btn=>{
-          btn.addEventListener('click', ()=> openEdit(btn.dataset.id, rows));
-        });
-        tbody.querySelectorAll('.js-del').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
+        // listeners (delegação)
+        tbody.addEventListener('click', async (ev)=>{
+          const t = ev.target;
+          if (t.matches('.js-edit')){
+            const id = t.dataset.id;
+            openEdit(id, rows);
+          }
+          if (t.matches('.js-del')){
+            const id = t.dataset.id;
             if (confirm('Confirma excluir este registro?')){
-              await apiDelete(btn.dataset.id);
+              await apiDelete(id);
               await reloadAll();
             }
-          });
-        });
+          }
+          if (t.matches('.js-toggle-pago')){
+            const td = t.closest('td');
+            const id = td.getAttribute('data-id');
+            const next = t.getAttribute('data-next') || 'Sim';
+            await apiUpdate({ id, pago: next });
+            await reloadAll();
+          }
+        }, { once:true });
       }
 
       // totais
@@ -384,8 +417,17 @@
       });
     }
 
+    function rerenderFromSelectors(){
+      const selectedKey = document.getElementById('monthSel').value;
+      const n = parseInt(document.getElementById('winSel').value, 10) || 1;
+      renderSummaryWindow(cachedSummary, selectedKey, n);
+      const rows = cachedAllRows.filter(r => (keyFromDateLike(r.mes) || keyFromDateLike(r.data)) === selectedKey);
+      renderMonthPanel(selectedKey, rows);
+      document.getElementById('monthLabel').textContent = selectedKey;
+    }
+
     async function reloadAll(){
-      // Resumo (carrega 12 meses, mas mostra 1 selecionado)
+      // Resumo (carrega 12 meses)
       const summaryResp = await apiGet('window=12');
       cachedSummary = summaryResp.summary || {};
 
@@ -393,24 +435,16 @@
       const keys = Object.keys(cachedSummary).sort();
       let selectedKey = keys.includes(thisMonthKey()) ? thisMonthKey() : (keys.length ? keys[keys.length-1] : thisMonthKey());
       fillMonthSelector(keys, selectedKey);
-      renderSummaryOneMonth(cachedSummary, selectedKey);
 
       // Dados
       const dataResp = await apiGet('');
       cachedAllRows = (dataResp && dataResp.ok && Array.isArray(dataResp.data)) ? dataResp.data : [];
-      const rows = cachedAllRows.filter(r => (keyFromDateLike(r.mes) || keyFromDateLike(r.data)) === selectedKey);
-      renderMonthPanel(selectedKey, rows);
-      document.getElementById('monthLabel').textContent = selectedKey;
+
+      rerenderFromSelectors();
     }
 
-    document.getElementById('monthSel').addEventListener('change', (e)=>{
-      const selectedKey = e.target.value;
-      renderSummaryOneMonth(cachedSummary, selectedKey);
-      const rows = cachedAllRows.filter(r => (keyFromDateLike(r.mes) || keyFromDateLike(r.data)) === selectedKey);
-      renderMonthPanel(selectedKey, rows);
-      document.getElementById('monthLabel').textContent = selectedKey;
-    });
-
+    document.getElementById('monthSel').addEventListener('change', rerenderFromSelectors);
+    document.getElementById('winSel').addEventListener('change', rerenderFromSelectors);
     document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); reloadAll(); });
 
     // Tipo => habilitar/validar valor/pago
