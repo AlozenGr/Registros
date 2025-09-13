@@ -15,47 +15,50 @@
     .badge{border-radius:9999px;padding:2px 8px;font-size:12px;font-weight:600;display:inline-block}
     .badge-green{background:#dcfce7;color:#166534}.badge-red{background:#fee2e2;color:#991b1b}
     .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
+    .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #cbd5e1;border-radius:8px;padding:.35rem .6rem;font-size:.8rem;background:#fff}
+    .btn:hover{background:#f8fafc}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
   <header class="p-4 bg-white shadow flex items-center justify-between">
     <h1 class="text-lg md:text-xl font-bold">📊 Controle Mensal – GRANTOP</h1>
-    <a href="#" id="btnReload" class="text-sm text-blue-700 hover:underline">Atualizar</a>
+    <div class="flex items-center gap-3">
+      <label class="text-sm flex items-center gap-2">Mês:
+        <select id="monthSel" class="border rounded px-2 py-1"></select>
+      </label>
+      <a href="#" id="btnReload" class="text-sm text-blue-700 hover:underline">Atualizar</a>
+    </div>
   </header>
 
   <main class="p-4 space-y-6">
+
     <!-- FORM -->
     <section class="card p-4">
       <h2 class="font-semibold mb-3">Adicionar Registro</h2>
-      <form id="newForm" class="grid md:grid-cols-6 gap-3">
+      <form id="newForm" class="grid md:grid-cols-7 gap-3">
         <input id="inData" class="border rounded px-3 py-2" name="data" type="date" required />
         <input id="inCliente" class="border rounded px-3 py-2" name="cliente" placeholder="Cliente" />
         <input id="inEndereco" class="border rounded px-3 py-2 md:col-span-2" name="endereco" placeholder="Endereço" />
-        <select id="inPago" class="border rounded px-3 py-2" name="pago">
-          <option value="Não">Pago? Não</option>
-          <option value="Sim">Pago? Sim</option>
+        <select id="inTipo" class="border rounded px-3 py-2" name="tipo">
+          <option value="TRABALHO" selected>TRABALHO</option>
+          <option value="DESPESA">DESPESA</option>
         </select>
-        <input id="inValor" class="border rounded px-3 py-2" name="valor" type="text" inputmode="decimal" placeholder="Valor da despesa" />
-        <button class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 md:col-span-6" type="submit">Salvar</button>
+        <select id="inPago" class="border rounded px-3 py-2" name="pago">
+          <option value="">Pago? —</option>
+          <option value="Não">Não</option>
+          <option value="Sim">Sim</option>
+        </select>
+        <input id="inValor" class="border rounded px-3 py-2" name="valor" type="text" inputmode="decimal" placeholder="Valor (DESPESA)" />
+        <button class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 md:col-span-7" type="submit">Salvar</button>
       </form>
-      <p class="text-xs text-slate-500 mt-2">Obs.: “Dias trabalhados” contam datas únicas com tipo “TRABALHO”.</p>
+      <p class="text-xs text-slate-500 mt-2">Obs.: TRABALHO ignora o valor; DESPESA exige valor. “Dias trabalhados” contam datas únicas com tipo “TRABALHO”.</p>
     </section>
 
-    <!-- RESUMO -->
+    <!-- RESUMO (apenas 1 cartão do mês selecionado) -->
     <section class="card p-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="font-semibold">Resumo Mensal</h2>
-        <label class="text-sm">Janela:
-          <select id="windowSel" class="border rounded px-2 py-1">
-            <option value="1">1 mês</option>
-            <option value="2">2 meses</option>
-            <option value="3">3 meses</option>
-            <option value="4">4 meses</option>
-            <option value="5">5 meses</option>
-            <option value="6" selected>6 meses</option>
-            <option value="12">12 meses</option>
-          </select>
-        </label>
+        <div id="summaryLoading" class="text-xs text-slate-500 hidden">Carregando...</div>
       </div>
       <div id="summary" class="grid md:grid-cols-3 gap-3"></div>
     </section>
@@ -63,13 +66,15 @@
     <!-- MÊS -->
     <section class="card p-4">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold">Registros do mês</h2>
-        <div class="text-sm">Selecionado: <b id="monthLabel"></b></div>
+        <div>
+          <h2 class="font-semibold">Registros do mês</h2>
+          <div class="text-sm">Selecionado: <b id="monthLabel"></b></div>
+        </div>
+        <div id="diasHeader" class="text-xl font-extrabold text-slate-800"></div>
       </div>
 
-      <!-- ✅ agora com 3 indicadores: Total, Pagas, Em aberto -->
-      <div class="grid md:grid-cols-6 gap-3 mb-4">
-        <div class="p-3 rounded-xl border bg-white md:col-span-3">
+      <div class="grid md:grid-cols-3 gap-3 mb-4">
+        <div class="p-3 rounded-xl border bg-white">
           <div class="font-semibold mb-1">Dias trabalhados (lista)</div>
           <ul id="diasLista" class="list-disc pl-5 text-sm space-y-1"></ul>
           <div id="diasEmpty" class="text-xs text-slate-500 hidden">Não há dias trabalhados registrados para este mês.</div>
@@ -79,20 +84,11 @@
           <div id="despesasTotalMes" class="text-lg font-bold">R$ 0,00</div>
         </div>
         <div class="p-3 rounded-xl border bg-white">
-          <div class="font-semibold mb-1">Despesas pagas no mês</div>
-          <div id="despesasPagasMes" class="text-lg font-bold">R$ 0,00</div>
-        </div>
-        <div class="p-3 rounded-xl border bg-white">
-          <div class="font-semibold mb-1">Despesas em aberto no mês</div>
-          <div id="despesasAbertasMes" class="text-lg font-bold">R$ 0,00</div>
-        </div>
-      </div>
-
-      <div class="p-3 rounded-xl border bg-white mb-4">
-        <div class="font-semibold mb-1">Somatória do mês</div>
-        <div class="text-sm">
-          Dias trabalhados: <b id="diasCount">0</b><br/>
-          Despesas (total): <b id="despesasCount">R$ 0,00</b>
+          <div class="font-semibold mb-1">Somatória do mês</div>
+          <div class="text-sm">
+            Dias trabalhados: <b id="diasCount">0</b><br/>
+            Despesas: <b id="despesasCount">R$ 0,00</b>
+          </div>
         </div>
       </div>
 
@@ -106,6 +102,7 @@
               <th class="text-left p-2 border">Pago</th>
               <th class="text-left p-2 border">Tipo</th>
               <th class="text-right p-2 border">Valor</th>
+              <th class="text-left p-2 border">Ações</th>
             </tr>
           </thead>
           <tbody id="tbodyMes"></tbody>
@@ -115,11 +112,51 @@
     </section>
   </main>
 
+  <!-- Modal de Edição -->
+  <dialog id="editDlg" class="rounded-xl p-0 border w-[95%] md:w-[560px]">
+    <form method="dialog" id="editForm" class="p-4 space-y-3">
+      <div class="text-lg font-semibold">Editar Registro</div>
+      <input type="hidden" id="edId" />
+      <div class="grid md:grid-cols-2 gap-3">
+        <label class="text-sm">Data
+          <input id="edData" class="border rounded px-3 py-2 w-full" type="date" required />
+        </label>
+        <label class="text-sm">Tipo
+          <select id="edTipo" class="border rounded px-3 py-2 w-full">
+            <option>TRABALHO</option>
+            <option>DESPESA</option>
+          </select>
+        </label>
+        <label class="text-sm md:col-span-2">Cliente
+          <input id="edCliente" class="border rounded px-3 py-2 w-full" />
+        </label>
+        <label class="text-sm md:col-span-2">Endereço
+          <input id="edEndereco" class="border rounded px-3 py-2 w-full" />
+        </label>
+        <label class="text-sm">Pago
+          <select id="edPago" class="border rounded px-3 py-2 w-full">
+            <option value="">—</option>
+            <option>Não</option>
+            <option>Sim</option>
+          </select>
+        </label>
+        <label class="text-sm">Valor (DESPESA)
+          <input id="edValor" class="border rounded px-3 py-2 w-full" inputmode="decimal" />
+        </label>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn" value="cancel">Cancelar</button>
+        <button id="btnSaveEdit" class="btn">Salvar alterações</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     /* ===== Utils ===== */
     const moneyBR = v => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
     const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const thisMonthKey = ()=> yyyymm(new Date());
 
     function normalizeISO(dateLike){
       if (!dateLike) return '';
@@ -159,33 +196,48 @@
     /* ===== API ===== */
     const apiGet = async (params='')=>{
       const url = API_URL + (params?`?${params}`:'');
-      const j = await jsonp(url);
-      if (!j || j.ok !== true) throw new Error('GET falhou');
-      return j;
+      const load = document.getElementById('summaryLoading');
+      load.classList.remove('hidden');
+      try{
+        const j = await jsonp(url);
+        if (!j || j.ok !== true) throw new Error('GET falhou');
+        return j;
+      } finally {
+        load.classList.add('hidden');
+      }
     };
-
     const apiAdd = async (payload)=>{
       const url = API_URL + '?action=add&payload=' + encodeURIComponent(JSON.stringify(payload));
       const j = await jsonp(url);
       if (!j || !j.ok) throw new Error((j && j.error) || 'Falha no add');
       return j;
     };
+    const apiUpdate = async (payload)=>{
+      const url = API_URL + '?action=update&payload=' + encodeURIComponent(JSON.stringify(payload));
+      const j = await jsonp(url);
+      if (!j || !j.ok) throw new Error((j && j.error) || 'Falha no update');
+      return j;
+    };
+    const apiDelete = async (id)=>{
+      const url = API_URL + '?action=delete&payload=' + encodeURIComponent(JSON.stringify({ id }));
+      const j = await jsonp(url);
+      if (!j || !j.ok) throw new Error((j && j.error) || 'Falha no delete');
+      return j;
+    };
 
     /* ===== Render ===== */
-    function renderSummary(summary){
+    function renderSummaryOneMonth(summary, selectedKey){
       const div = document.getElementById('summary');
       div.innerHTML = '';
-      Object.keys(summary).sort().forEach(m=>{
-        const d = summary[m] || {diasTrabalhados:0, despesasTotal:0};
-        const el = document.createElement('div');
-        el.className = 'p-3 rounded-xl border shadow text-sm bg-white';
-        el.innerHTML = `
-          <div class="font-semibold">${m}</div>
-          <div>Dias trabalhados: <b>${d.diasTrabalhados}</b></div>
-          <div>Despesas: R$ <b>${moneyBR(d.despesasTotal)}</b></div>
-        `;
-        div.appendChild(el);
-      });
+      const d = summary[selectedKey] || {diasTrabalhados:0, despesasTotal:0};
+      const el = document.createElement('div');
+      el.className = 'p-3 rounded-xl border shadow text-sm bg-white';
+      el.innerHTML = `
+        <div class="font-semibold">${selectedKey}</div>
+        <div>Dias trabalhados: <b>${d.diasTrabalhados}</b></div>
+        <div>Despesas: R$ <b>${moneyBR(d.despesasTotal)}</b></div>
+      `;
+      div.appendChild(el);
     }
 
     function renderMonthPanel(monthKey, rows){
@@ -197,18 +249,16 @@
         .filter(Boolean)
       )).sort();
 
-      const somenteDespesas = (rows||[]).filter(r => String(r.tipo).toUpperCase()==='DESPESA');
+      const despesas = (rows||[])
+        .filter(r => String(r.tipo).toUpperCase()==='DESPESA')
+        .reduce((s, r) => {
+          const v = typeof r.valor === 'number' ? r.valor : toNumberBR(String(r.valor||''));
+          return s + (isFinite(v) ? v : 0);
+        }, 0);
 
-      const totalDesp = somenteDespesas.reduce((s,r)=>{
-        const v = typeof r.valor==='number' ? r.valor : toNumberBR(String(r.valor||''));
-        return s + (isFinite(v)?v:0);
-      }, 0);
-
-      const pagas = somenteDespesas
-        .filter(r => String(r.pago).trim().toLowerCase()==='sim')
-        .reduce((s,r)=> s + (typeof r.valor==='number' ? r.valor : toNumberBR(String(r.valor||''))), 0);
-
-      const abertas = totalDesp - pagas;
+      // Header grande dos dias trabalhados
+      const diasHeader = document.getElementById('diasHeader');
+      diasHeader.textContent = `${dias.length} ${dias.length===1?'DIA':'DIAS'} TRABALHADO${dias.length===1?'':'S'}`;
 
       // lista de dias
       const ul = document.getElementById('diasLista');
@@ -260,55 +310,124 @@
               <td class="p-2 border">${pagoBadge}</td>
               <td class="p-2 border">${tipoBadge}</td>
               <td class="p-2 border text-right">${vnum > 0 ? 'R$ ' + moneyBR(vnum) : '-'}</td>
+              <td class="p-2 border">
+                <button class="btn js-edit" data-id="${r.id}">Editar</button>
+                <button class="btn js-del" data-id="${r.id}">Excluir</button>
+              </td>
             `;
             tbody.appendChild(tr);
           });
+
+        // listeners
+        tbody.querySelectorAll('.js-edit').forEach(btn=>{
+          btn.addEventListener('click', ()=> openEdit(btn.dataset.id, rows));
+        });
+        tbody.querySelectorAll('.js-del').forEach(btn=>{
+          btn.addEventListener('click', async ()=>{
+            if (confirm('Confirma excluir este registro?')){
+              await apiDelete(btn.dataset.id);
+              await reloadAll();
+            }
+          });
+        });
       }
 
       // totais
-      document.getElementById('despesasTotalMes').textContent   = 'R$ ' + moneyBR(totalDesp);
-      document.getElementById('despesasPagasMes').textContent   = 'R$ ' + moneyBR(pagas);
-      document.getElementById('despesasAbertasMes').textContent = 'R$ ' + moneyBR(abertas);
-
+      document.getElementById('despesasTotalMes').textContent = 'R$ ' + moneyBR(despesas);
       document.getElementById('diasCount').textContent = dias.length;
-      document.getElementById('despesasCount').textContent = 'R$ ' + moneyBR(totalDesp);
+      document.getElementById('despesasCount').textContent = 'R$ ' + moneyBR(despesas);
+    }
+
+    /* ===== Edit modal ===== */
+    function openEdit(id, rows){
+      const it = (rows||[]).find(x=> String(x.id)===String(id));
+      if (!it) return;
+      document.getElementById('edId').value = it.id || '';
+      document.getElementById('edData').value = normalizeISO(it.data);
+      document.getElementById('edTipo').value = (String(it.tipo||'TRABALHO').toUpperCase());
+      document.getElementById('edCliente').value = it.cliente || '';
+      document.getElementById('edEndereco').value = it.endereco || '';
+      document.getElementById('edPago').value = (it.pago || '');
+      document.getElementById('edValor').value = (typeof it.valor==='number' ? it.valor.toFixed(2) : String(it.valor||''));
+
+      const dlg = document.getElementById('editDlg');
+      if (!dlg.open) dlg.showModal();
+
+      document.getElementById('btnSaveEdit').onclick = async (ev)=>{
+        ev.preventDefault();
+        const id = document.getElementById('edId').value;
+        const data = document.getElementById('edData').value;
+        const tipo = document.getElementById('edTipo').value;
+        const cliente = document.getElementById('edCliente').value;
+        const endereco = document.getElementById('edEndereco').value;
+        const pago = document.getElementById('edPago').value;
+        const valorNum = toNumberBR(document.getElementById('edValor').value);
+        const payload = { id, data, tipo, cliente, endereco, pago, valor: (tipo==='DESPESA'?valorNum:0) };
+        await apiUpdate(payload);
+        dlg.close();
+        await reloadAll();
+      };
     }
 
     /* ===== Fluxo ===== */
-    async function loadUsingLatestMonth(){
-      const win = document.getElementById('windowSel').value || 6;
-      const summaryResp = await apiGet('window='+encodeURIComponent(win));
-      if (summaryResp && summaryResp.ok){
-        renderSummary(summaryResp.summary || {});
-        const keys = Object.keys(summaryResp.summary || {}).sort();
-        let lastKey = keys.length ? keys[keys.length-1] : null;
+    let cachedSummary = {};
+    let cachedAllRows = [];
 
-        // Leitura de todos os registros (para filtrar pelo mês de forma resiliente)
-        const dataResp = await apiGet('');
-        const allRows = (dataResp && dataResp.ok && Array.isArray(dataResp.data)) ? dataResp.data : [];
-
-        // Se o summary estiver vazio, tenta inferir o último mês a partir dos dados
-        if (!lastKey && allRows.length){
-          lastKey = allRows
-            .map(r => keyFromDateLike(r.mes) || keyFromDateLike(r.data))
-            .filter(Boolean)
-            .sort()
-            .pop();
-        }
-        if (!lastKey){ lastKey = yyyymm(new Date()); }
-
-        // Filtro robusto: aceita 'mes' como 'YYYY-MM' ou Date-string
-        const rows = allRows.filter(r => {
-          const k = keyFromDateLike(r.mes) || keyFromDateLike(r.data);
-          return String(k) === String(lastKey);
-        });
-
-        renderMonthPanel(lastKey, rows);
-      }
+    function fillMonthSelector(keys, selected){
+      const sel = document.getElementById('monthSel');
+      sel.innerHTML = '';
+      keys.forEach(k=>{
+        const opt = document.createElement('option');
+        opt.value = k; opt.textContent = k;
+        if (k===selected) opt.selected = true;
+        sel.appendChild(opt);
+      });
     }
 
-    document.getElementById('windowSel').addEventListener('change', loadUsingLatestMonth);
-    document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); loadUsingLatestMonth(); });
+    async function reloadAll(){
+      // Resumo (carrega 12 meses, mas mostra 1 selecionado)
+      const summaryResp = await apiGet('window=12');
+      cachedSummary = summaryResp.summary || {};
+
+      // Chave padrão = mês atual (ou último do summary)
+      const keys = Object.keys(cachedSummary).sort();
+      let selectedKey = keys.includes(thisMonthKey()) ? thisMonthKey() : (keys.length ? keys[keys.length-1] : thisMonthKey());
+      fillMonthSelector(keys, selectedKey);
+      renderSummaryOneMonth(cachedSummary, selectedKey);
+
+      // Dados
+      const dataResp = await apiGet('');
+      cachedAllRows = (dataResp && dataResp.ok && Array.isArray(dataResp.data)) ? dataResp.data : [];
+      const rows = cachedAllRows.filter(r => (keyFromDateLike(r.mes) || keyFromDateLike(r.data)) === selectedKey);
+      renderMonthPanel(selectedKey, rows);
+      document.getElementById('monthLabel').textContent = selectedKey;
+    }
+
+    document.getElementById('monthSel').addEventListener('change', (e)=>{
+      const selectedKey = e.target.value;
+      renderSummaryOneMonth(cachedSummary, selectedKey);
+      const rows = cachedAllRows.filter(r => (keyFromDateLike(r.mes) || keyFromDateLike(r.data)) === selectedKey);
+      renderMonthPanel(selectedKey, rows);
+      document.getElementById('monthLabel').textContent = selectedKey;
+    });
+
+    document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); reloadAll(); });
+
+    // Tipo => habilitar/validar valor/pago
+    function refreshTipoUI(){
+      const tipo = document.getElementById('inTipo').value;
+      const valor = document.getElementById('inValor');
+      const pago = document.getElementById('inPago');
+      if (tipo === 'DESPESA'){
+        valor.disabled = false;
+      } else {
+        valor.disabled = true;
+        valor.value = '';
+        if (pago.value==='Sim') pago.value='';
+      }
+    }
+    document.getElementById('inTipo').addEventListener('change', refreshTipoUI);
+    refreshTipoUI();
 
     // SALVAR
     document.getElementById('newForm').addEventListener('submit', async (e)=>{
@@ -320,15 +439,23 @@
         const data = document.getElementById('inData').value;
         const cliente = (document.getElementById('inCliente').value || '').trim();
         const endereco = (document.getElementById('inEndereco').value || '').trim();
+        const tipo = document.getElementById('inTipo').value;
         const pago = (document.getElementById('inPago').value || '').trim();
         const valorNum = toNumberBR(document.getElementById('inValor').value);
 
-        const payload = { data, cliente, endereco, pago, descricao:'', valor: valorNum };
+        if (tipo==='DESPESA' && !(valorNum>0)) {
+          alert('Para DESPESA, informe um valor.');
+          return;
+        }
+
+        const payload = { data, cliente, endereco, tipo, pago, descricao:'', valor: (tipo==='DESPESA' ? valorNum : 0) };
 
         await apiAdd(payload);
         alert('Registro salvo com sucesso!');
+
         e.target.reset();
-        await loadUsingLatestMonth();
+        refreshTipoUI();
+        await reloadAll();
 
       } catch(err){
         console.error(err);
@@ -338,8 +465,8 @@
       }
     });
 
-    // Carrega na abertura usando o último mês disponível no servidor
-    loadUsingLatestMonth();
+    // Inicial
+    reloadAll();
   </script>
 </body>
 </html>
