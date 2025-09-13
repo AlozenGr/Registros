@@ -7,12 +7,10 @@
   <link rel="icon" href="data:," />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- ✅ Config embutida para evitar 404 de config.js -->
+  <!-- ✅ Config embutida: use var para evitar qualquer erro de inicialização -->
   <script>
-    window.GRANTOP_CONFIG = {
-      API_URL: 'https://script.google.com/macros/s/AKfycbwWyI0Rsyz4R-aw5dwKKETUOZq_wMSekBIXU3Q-hv-Hcf6-nKxrAgA_aTE20StEoWUq/exec'
-    };
-    const API_URL = window.GRANTOP_CONFIG.API_URL;
+    // Troque esta URL quando reimplantar o Apps Script (nova /exec)
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwWyI0Rsyz4R-aw5dwKKETUOZq_wMSekBIXU3Q-hv-Hcf6-nKxrAgA_aTE20StEoWUq/exec';
   </script>
 
   <style>
@@ -29,7 +27,6 @@
   </header>
 
   <main class="p-4 space-y-6">
-
     <!-- FORM -->
     <section class="card p-4">
       <h2 class="font-semibold mb-3">Adicionar Registro</h2>
@@ -262,7 +259,7 @@
       if (j && j.ok) renderSummary(j.summary||{});
     }
     async function loadMonth(monthKey){
-      // Busca TODOS os registros e filtra no cliente
+      // Busca TODOS os registros e filtra o mês no cliente
       const j = await apiGet('');
       const rows = (j && j.ok && Array.isArray(j.data)) ? j.data.filter(r => String(r.mes) === String(monthKey)) : [];
       renderMonthPanel(monthKey, rows);
