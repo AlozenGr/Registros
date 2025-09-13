@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+index_html = """<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -126,7 +126,7 @@
       return `${D}/${M}/${Y}`;
     }
 
-    /* ===== JSONP helper ===== */
+    /* ===== JSONP helper (evita CORS/preflight) ===== */
     function jsonp(url, timeout=15000){
       return new Promise((resolve, reject)=>{
         const cbName = '__grantop_cb_' + Math.random().toString(36).slice(2);
@@ -265,15 +265,9 @@
       if (j && j.ok) renderSummary(j.summary||{});
     }
     async function loadMonth(monthKey){
-      // Busca todos os registros e filtra no cliente de forma robusta
-      const j = await apiGet('');
-      const rows = (j && j.ok && Array.isArray(j.data))
-        ? j.data.filter(r => {
-            const mes = String(r.mes||'').trim();
-            const mesFromData = normalizeISO(r.data||'').slice(0,7);
-            return (mes.slice(0,7) === String(monthKey)) || (mesFromData === String(monthKey));
-          })
-        : [];
+      // Busca TODOS os registros e filtra no cliente (evita qualquer divergência no filtro do servidor)
+      const j = await apiGet(''); // sem params = retorna tudo
+      const rows = (j && j.ok && Array.isArray(j.data)) ? j.data.filter(r => String(r.mes) === String(monthKey)) : [];
       renderMonthPanel(monthKey, rows);
     }
     async function initialLoad(){
@@ -315,3 +309,8 @@
         btn.disabled = false; btn.textContent = old;
       }
     });
+
+    initialLoad();
+  </script>
+</body>
+</html>
