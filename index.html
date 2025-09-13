@@ -15,7 +15,7 @@
     .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
   </style>
   <script>
-    const API_URL = (window.GRANTOP_CONFIG && window.GRANTOP_CONFIG.API_URL) || 'https://script.google.com/macros/s/AKfycbxqmLLygOg9Di8eTPy0zxbyxKa4PwqCzedzQN1HautErAC8MiaqIRq4FpO4xwP0MFjFVQ/exec';
+    const API_URL = (window.GRANTOP_CONFIG && window.GRANTOP_CONFIG.API_URL) || 'https://script.google.com/macros/s/AKfycbzfYN-bvcpqwcewSVkS8wFA8YxLQtag1KStX7wFLsVnjw3D2lEpbsZS9LouHQHnSHN7/exec';
   </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -110,12 +110,12 @@
   <script>
     /* ===== Utils ===== */
     const moneyBR = v => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\\./g,'').replace(',', '.')) || 0;
+    const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
     const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 
     function normalizeISO(dateLike){
       if (!dateLike) return '';
-      if (/^\\d{4}-\\d{2}-\\d{2}$/.test(String(dateLike))) return String(dateLike);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateLike))) return String(dateLike);
       const d = new Date(String(dateLike));
       if (isNaN(d)) return '';
       return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -299,4 +299,3 @@
   </script>
 </body>
 </html>
-"""
