@@ -256,11 +256,17 @@
       if (summaryResp && summaryResp.ok){
         renderSummary(summaryResp.summary || {});
         const keys = Object.keys(summaryResp.summary || {}).sort();
-        const lastKey = keys.length ? keys[keys.length-1] : yyyymm(new Date());
+        let lastKey = keys.length ? keys[keys.length-1] : null;
+
+        // Fallback: se o summary vier vazio, usamos o maior "mes" presente em data
         const dataResp = await apiGet('');
-        const rows = (dataResp && dataResp.ok && Array.isArray(dataResp.data))
-          ? dataResp.data.filter(r => String(r.mes) === String(lastKey))
-          : [];
+        const allRows = (dataResp && dataResp.ok && Array.isArray(dataResp.data)) ? dataResp.data : [];
+        if (!lastKey && allRows.length){
+          lastKey = allRows.map(r=>String(r.mes)).filter(Boolean).sort().pop();
+        }
+        if (!lastKey){ lastKey = yyyymm(new Date()); }
+
+        const rows = allRows.filter(r => String(r.mes) === String(lastKey));
         renderMonthPanel(lastKey, rows);
       }
     }
@@ -296,7 +302,7 @@
       }
     });
 
-    // Carrega na abertura usando o último mês disponível no servidor
+    // Carrega na abertura usando o último mês disponível no servidor (com fallback)
     loadUsingLatestMonth();
   </script>
 </body>
