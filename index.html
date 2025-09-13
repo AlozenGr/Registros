@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GRANTOP – Controle de Trabalho & Despesas</title>
+  <link rel="icon" href="data:," />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .card{border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+    .badge{border-radius:9999px;padding:2px 8px;font-size:12px;font-weight:600;display:inline-block}
+    .badge-green{background:#dcfce7;color:#166534}.badge-red{background:#fee2e2;color:#991b1b}
+    .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
+  </style>
+  <script>
+    /* ✅ seu endpoint /exec */
+    const API_URL = "https://script.google.com/macros/s/AKfycbw3n4IjL_VgqAnEI0iDYThi496XCpY06HFUJ_EOd9lQynroGLLOi2_JsN036YqrKz6A/exec";
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <header class="p-4 bg-white shadow flex items-center justify-between">
+    <h1 class="text-lg md:text-xl font-bold">📊 Controle Mensal – GRANTOP</h1>
+    <a href="#" id="btnReload" class="text-sm text-blue-700 hover:underline">Atualizar</a>
+  </header>
+
+  <main class="p-4 space-y-6">
+
+    <!-- FORM -->
+    <section class="card p-4">
+      <h2 class="font-semibold mb-3">Adicionar Registro</h2>
+      <form id="newForm" class="grid md:grid-cols-6 gap-3">
+        <input id="inData" class="border rounded px-3 py-2" name="data" type="date" required />
+        <input id="inCliente" class="border rounded px-3 py-2" name="cliente" placeholder="Cliente" />
+        <input id="inEndereco" class="border rounded px-3 py-2 md:col-span-2" name="endereco" placeholder="Endereço" />
+        <select id="inPago" class="border rounded px-3 py-2" name="pago">
+          <option value="Não">Pago? Não</option>
+          <option value="Sim">Pago? Sim</option>
+        </select>
+        <input id="inValor" class="border rounded px-3 py-2" name="valor" type="text" inputmode="decimal" placeholder="Valor da despesa" />
+        <button class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 md:col-span-6" type="submit">Salvar</button>
+      </form>
+      <p class="text-xs text-slate-500 mt-2">Obs.: “Dias trabalhados” contam datas únicas com tipo “TRABALHO”.</p>
+    </section>
+
+    <!-- RESUMO -->
+    <section class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="font-semibold">Resumo Mensal</h2>
+        <label class="text-sm">Janela:
+          <select id="windowSel" class="border rounded px-2 py-1">
+            <option value="1">1 mês</option>
+            <option value="2">2 meses</option>
+            <option value="3">3 meses</option>
+            <option value="4">4 meses</option>
+            <option value="5">5 meses</option>
+            <option value="6" selected>6 meses</option>
+            <option value="12">12 meses</option>
+          </select>
+        </label>
+      </div>
+      <div id="summary" class="grid md:grid-cols-3 gap-3"></div>
+    </section>
+
+    <!-- MÊS -->
+    <section class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Registros do mês</h2>
+        <div class="text-sm">Selecionado: <b id="monthLabel"></b></div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-3 mb-4">
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="font-semibold mb-1">Dias trabalhados (lista)</div>
+          <ul id="diasLista" class="list-disc pl-5 text-sm space-y-1"></ul>
+          <div id="diasEmpty" class="text-xs text-slate-500 hidden">Não há dias trabalhados registrados para este mês.</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="font-semibold mb-1">Total de despesas no mês</div>
+          <div id="despesasTotalMes" class="text-lg font-bold">R$ 0,00</div>
+        </div>
+        <div class="p-3 rounded-xl border bg-white">
+          <div class="font-semibold mb-1">Somatória do mês</div>
+          <div class="text-sm">
+            Dias trabalhados: <b id="diasCount">0</b><br/>
+            Despesas: <b id="despesasCount">R$ 0,00</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm border rounded-lg overflow-hidden">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="text-left p-2 border">Data</th>
+              <th class="text-left p-2 border">Cliente</th>
+              <th class="text-left p-2 border">Endereço</th>
+              <th class="text-left p-2 border">Pago</th>
+              <th class="text-left p-2 border">Tipo</th>
+              <th class="text-right p-2 border">Valor</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMes"></tbody>
+        </table>
+        <div id="tblEmpty" class="text-xs text-slate-500 mt-2 hidden">Não há registros para este mês.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ===== Utils ===== */
+    const moneyBR = v => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
+    const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+
+    // Normaliza data que pode vir "YYYY-MM-DD" OU "Fri Sep 12 2025 ..."
+    function normalizeISO(dateLike){
+      if (!dateLike) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateLike))) return String(dateLike);
+      const d = new Date(String(dateLike));
+      if (isNaN(d)) return '';
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function fmtDDMMYYYY(iso){
+      const s = normalizeISO(iso);
+      if (!s) return '';
+      const [Y,M,D] = s.split('-');
+      return `${D}/${M}/${Y}`;
+    }
+
+    /* ===== API ===== */
+    const apiGet = async (params='')=>{
+      const r = await fetch(API_URL + (params?`?${params}`:''));
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error('GET '+r.status);
+      return j;
+    };
+    const apiAdd = async (payload)=>{
+      const r = await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'add', payload })
+      });
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || ('POST '+r.status));
+      return j;
+    };
+
+    /* ===== Render ===== */
+    function renderSummary(summary){
+      const div = document.getElementById('summary');
+      div.innerHTML = '';
+      Object.keys(summary).sort().forEach(m=>{
+        const d = summary[m] || {diasTrabalhados:0, despesasTotal:0};
+        const el = document.createElement('div');
+        el.className = 'p-3 rounded-xl border shadow text-sm bg-white';
+        el.innerHTML = `
+          <div class="font-semibold">${m}</div>
+          <div>Dias trabalhados: <b>${d.diasTrabalhados}</b></div>
+          <div>Despesas: R$ <b>${moneyBR(d.despesasTotal)}</b></div>
+        `;
+        div.appendChild(el);
+      });
+    }
+
+    function renderMonthPanel(monthKey, rows){
+      document.getElementById('monthLabel').textContent = monthKey;
+
+      const dias = Array.from(new Set((rows||[])
+        .filter(r => String(r.tipo).toUpperCase()==='TRABALHO')
+        .map(r => normalizeISO(r.data))
+        .filter(Boolean)
+      )).sort();
+
+      const despesas = (rows||[])
+        .filter(r => String(r.tipo).toUpperCase()==='DESPESA')
+        .reduce((s, r) => {
+          const v = typeof r.valor === 'number' ? r.valor : toNumberBR(String(r.valor||''));
+          return s + (isFinite(v) ? v : 0);
+        }, 0);
+
+      // lista de dias
+      const ul = document.getElementById('diasLista');
+      const emptyDias = document.getElementById('diasEmpty');
+      ul.innerHTML = '';
+      if (dias.length===0){
+        emptyDias.classList.remove('hidden');
+      } else {
+        emptyDias.classList.add('hidden');
+        dias.forEach(iso=>{
+          const li = document.createElement('li');
+          li.textContent = fmtDDMMYYYY(iso);
+          ul.appendChild(li);
+        });
+      }
+
+      // tabela
+      const tbody = document.getElementById('tbodyMes');
+      const tblEmpty = document.getElementById('tblEmpty');
+      tbody.innerHTML = '';
+      if (!rows || rows.length===0){
+        tblEmpty.classList.remove('hidden');
+      } else {
+        tblEmpty.classList.add('hidden');
+        rows
+          .slice()
+          .sort((a,b)=> normalizeISO(a.data).localeCompare(normalizeISO(b.data)))
+          .forEach(r=>{
+            const pagoBadge =
+              (String(r.pago).toLowerCase()==='sim')
+                ? '<span class="badge badge-green">Sim</span>'
+                : (String(r.pago).toLowerCase()==='não' || String(r.pago).toLowerCase()==='nao')
+                  ? '<span class="badge badge-red">Não</span>'
+                  : `<span class="badge badge-slate">${(r.pago||'-')}</span>`;
+
+            const tipoBadge =
+              (String(r.tipo).toUpperCase()==='DESPESA')
+                ? '<span class="badge badge-blue">Despesa</span>'
+                : '<span class="badge badge-slate">Trabalho</span>';
+
+            const tr = document.createElement('tr');
+            tr.className = 'odd:bg-white even:bg-slate-50';
+            tr.innerHTML = `
+              <td class="p-2 border">${fmtDDMMYYYY(r.data)}</td>
+              <td class="p-2 border">${(r.cliente||'').toString().trim() || '-'}</td>
+              <td class="p-2 border">${(r.endereco||'').toString().trim() || '-'}</td>
+              <td class="p-2 border">${pagoBadge}</td>
+              <td class="p-2 border">${tipoBadge}</td>
+              <td class="p-2 border text-right">${
+                (() => {
+                  const v = typeof r.valor === 'number' ? r.valor : toNumberBR(String(r.valor||''));
+                  return v > 0 ? 'R$ ' + moneyBR(v) : '-';
+                })()
+              }</td>
+            `;
+            tbody.appendChild(tr);
+          });
+      }
+
+      // totais
+      document.getElementById('despesasTotalMes').textContent = 'R$ ' + moneyBR(despesas);
+      document.getElementById('diasCount').textContent = dias.length;
+      document.getElementById('despesasCount').textContent = 'R$ ' + moneyBR(despesas);
+    }
+
+    /* ===== Fluxo ===== */
+    async function loadSummary(){
+      const win = document.getElementById('windowSel').value || 6;
+      const j = await apiGet('window='+encodeURIComponent(win));
+      if (j && j.ok) renderSummary(j.summary||{});
+    }
+    async function loadMonth(monthKey){
+      const k = await apiGet('month='+encodeURIComponent(monthKey));
+      if (k && k.ok) renderMonthPanel(monthKey, k.data||[]);
+    }
+    async function initialLoad(){
+      await loadSummary();
+      await loadMonth( yyyymm(new Date()) );
+    }
+
+    document.getElementById('windowSel').addEventListener('change', loadSummary);
+    document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); initialLoad(); });
+
+    // SALVAR
+    document.getElementById('newForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      const old = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      try{
+        const data = document.getElementById('inData').value;
+        const cliente = (document.getElementById('inCliente').value || '').trim();
+        const endereco = (document.getElementById('inEndereco').value || '').trim();
+        const pago = (document.getElementById('inPago').value || '').trim();
+        const valorNum = toNumberBR(document.getElementById('inValor').value);
+
+        const payload = {
+          data,
+          cliente,
+          endereco,
+          pago,
+          descricao: '',
+          valor: valorNum
+        };
+
+        await apiAdd(payload);
+        alert('Registro salvo com sucesso!');
+
+        e.target.reset();
+        const monthKey = (data && data.length>=7) ? data.slice(0,7) : yyyymm(new Date());
+        await loadSummary();
+        await loadMonth(monthKey);
+
+      } catch(err){
+        console.error(err);
+        alert('Falha ao salvar: ' + err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = old;
+      }
+    });
+
+    initialLoad();
+  </script>
+</body>
+</html>
