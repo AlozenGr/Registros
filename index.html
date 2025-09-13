@@ -6,6 +6,8 @@
   <title>GRANTOP – Controle de Trabalho & Despesas</title>
   <link rel="icon" href="data:," />
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ✅ mesmo padrão do modelo -->
+  <script src="config.js"></script>
   <style>
     .card{border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.05)}
     .badge{border-radius:9999px;padding:2px 8px;font-size:12px;font-weight:600;display:inline-block}
@@ -13,8 +15,8 @@
     .badge-blue{background:#dbeafe;color:#1e40af}.badge-slate{background:#e2e8f0;color:#334155}
   </style>
   <script>
-    /* ✅ seu endpoint /exec (se re-deployar, atualize aqui) */
-    const API_URL = "https://script.google.com/macros/s/AKfycbxqmLLygOg9Di8eTPy0zxbyxKa4PwqCzedzQN1HautErAC8MiaqIRq4FpO4xwP0MFjFVQ/exec";
+    /* ✅ API_URL agora vem do config.js (padrão do modelo) */
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxqmLLygOg9Di8eTPy0zxbyxKa4PwqCzedzQN1HautErAC8MiaqIRq4FpO4xwP0MFjFVQ/exec';
   </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -112,7 +114,6 @@
     const toNumberBR = v => !v ? 0 : Number(String(v).replace(/\./g,'').replace(',', '.')) || 0;
     const yyyymm = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 
-    // Normaliza data que pode vir "YYYY-MM-DD" OU "Fri Sep 12 2025 ...":
     function normalizeISO(dateLike){
       if (!dateLike) return '';
       if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateLike))) return String(dateLike);
@@ -135,15 +136,17 @@
       return j;
     };
 
-    // 💡 POST simples SEM headers (evita preflight/CORS do Apps Script)
+    // ✅ padrão do modelo: POST com text/plain (simple request, sem preflight)
     const apiAdd = async (payload)=>{
       const r = await fetch(API_URL, {
         method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
         body: JSON.stringify({ action:'add', payload })
-      });
-      const txt = await r.text();       // parse resiliente
-      let j = {};
-      try { j = JSON.parse(txt); } catch(_) {}
+      }).catch(()=>null);
+
+      if (!r) throw new Error('Falha de rede');
+      const txt = await r.text();
+      let j = {}; try { j = JSON.parse(txt); } catch(_) {}
       if (!r.ok || !j.ok) throw new Error((j && j.error) || ('POST '+r.status));
       return j;
     };
@@ -277,7 +280,6 @@
         const valorNum = toNumberBR(document.getElementById('inValor').value);
 
         const payload = { data, cliente, endereco, pago, descricao:'', valor: valorNum };
-
         await apiAdd(payload);
         alert('Registro salvo com sucesso!');
 
