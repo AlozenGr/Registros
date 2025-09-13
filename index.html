@@ -124,6 +124,12 @@
       const [Y,M,D] = s.split('-');
       return `${D}/${M}/${Y}`;
     }
+    function keyFromDateLike(x){
+      if (!x) return '';
+      if (/^\d{4}-\d{2}$/.test(String(x))) return String(x);
+      const d = new Date(String(x));
+      return isNaN(d) ? '' : yyyymm(d);
+    }
 
     /* ===== JSONP helper ===== */
     function jsonp(url, timeout=15000){
@@ -258,15 +264,26 @@
         const keys = Object.keys(summaryResp.summary || {}).sort();
         let lastKey = keys.length ? keys[keys.length-1] : null;
 
-        // Fallback: se o summary vier vazio, usamos o maior "mes" presente em data
+        // Leitura de todos os registros (para filtrar pelo mês de forma resiliente)
         const dataResp = await apiGet('');
         const allRows = (dataResp && dataResp.ok && Array.isArray(dataResp.data)) ? dataResp.data : [];
+
+        // Se o summary estiver vazio, tenta inferir o último mês a partir dos dados
         if (!lastKey && allRows.length){
-          lastKey = allRows.map(r=>String(r.mes)).filter(Boolean).sort().pop();
+          lastKey = allRows
+            .map(r => keyFromDateLike(r.mes) || keyFromDateLike(r.data))
+            .filter(Boolean)
+            .sort()
+            .pop();
         }
         if (!lastKey){ lastKey = yyyymm(new Date()); }
 
-        const rows = allRows.filter(r => String(r.mes) === String(lastKey));
+        // FILTRO ROBUSTO: aceita 'mes' como 'YYYY-MM' ou Date-string
+        const rows = allRows.filter(r => {
+          const k = keyFromDateLike(r.mes) || keyFromDateLike(r.data);
+          return String(k) === String(lastKey);
+        });
+
         renderMonthPanel(lastKey, rows);
       }
     }
