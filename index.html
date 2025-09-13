@@ -6,13 +6,10 @@
   <title>GRANTOP – Controle de Trabalho & Despesas</title>
   <link rel="icon" href="data:," />
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- ✅ Config embutida: use var para evitar qualquer erro de inicialização -->
   <script>
-    // Troque esta URL quando reimplantar o Apps Script (nova /exec)
+    /* URL do seu Apps Script (Web App) */
     var API_URL = 'https://script.google.com/macros/s/AKfycbwWyI0Rsyz4R-aw5dwKKETUOZq_wMSekBIXU3Q-hv-Hcf6-nKxrAgA_aTE20StEoWUq/exec';
   </script>
-
   <style>
     .card{border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.05)}
     .badge{border-radius:9999px;padding:2px 8px;font-size:12px;font-weight:600;display:inline-block}
@@ -128,7 +125,7 @@
       return `${D}/${M}/${Y}`;
     }
 
-    /* ===== JSONP helper (evita CORS/preflight) ===== */
+    /* ===== JSONP helper ===== */
     function jsonp(url, timeout=15000){
       return new Promise((resolve, reject)=>{
         const cbName = '__grantop_cb_' + Math.random().toString(36).slice(2);
@@ -253,24 +250,23 @@
     }
 
     /* ===== Fluxo ===== */
-    async function loadSummary(){
+    async function loadUsingLatestMonth(){
       const win = document.getElementById('windowSel').value || 6;
-      const j = await apiGet('window='+encodeURIComponent(win));
-      if (j && j.ok) renderSummary(j.summary||{});
-    }
-    async function loadMonth(monthKey){
-      // Busca TODOS os registros e filtra o mês no cliente
-      const j = await apiGet('');
-      const rows = (j && j.ok && Array.isArray(j.data)) ? j.data.filter(r => String(r.mes) === String(monthKey)) : [];
-      renderMonthPanel(monthKey, rows);
-    }
-    async function initialLoad(){
-      await loadSummary();
-      await loadMonth( yyyymm(new Date()) );
+      const summaryResp = await apiGet('window='+encodeURIComponent(win));
+      if (summaryResp && summaryResp.ok){
+        renderSummary(summaryResp.summary || {});
+        const keys = Object.keys(summaryResp.summary || {}).sort();
+        const lastKey = keys.length ? keys[keys.length-1] : yyyymm(new Date());
+        const dataResp = await apiGet('');
+        const rows = (dataResp && dataResp.ok && Array.isArray(dataResp.data))
+          ? dataResp.data.filter(r => String(r.mes) === String(lastKey))
+          : [];
+        renderMonthPanel(lastKey, rows);
+      }
     }
 
-    document.getElementById('windowSel').addEventListener('change', loadSummary);
-    document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); initialLoad(); });
+    document.getElementById('windowSel').addEventListener('change', loadUsingLatestMonth);
+    document.getElementById('btnReload').addEventListener('click', (e)=>{ e.preventDefault(); loadUsingLatestMonth(); });
 
     // SALVAR
     document.getElementById('newForm').addEventListener('submit', async (e)=>{
@@ -289,11 +285,8 @@
 
         await apiAdd(payload);
         alert('Registro salvo com sucesso!');
-
         e.target.reset();
-        const monthKey = (data && data.length>=7) ? data.slice(0,7) : yyyymm(new Date());
-        await loadSummary();
-        await loadMonth(monthKey);
+        await loadUsingLatestMonth();
 
       } catch(err){
         console.error(err);
@@ -303,7 +296,8 @@
       }
     });
 
-    initialLoad();
+    // Carrega na abertura usando o último mês disponível no servidor
+    loadUsingLatestMonth();
   </script>
 </body>
 </html>
